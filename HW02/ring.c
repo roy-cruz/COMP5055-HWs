@@ -1,35 +1,41 @@
-/**
- * ring.c
+/* 
+ * COMP5055 Homework 2
+ * Roy F. Cruz Candelaria
+ */
+
+/*  DOCUMENTATION
+ *  
+ *    File:
+ *       ring.c
  *
- * This program prints a hello message at each process. Modify it so that it
- * communicates in a ring fashion like so:
+ *    Purpose:
+ *       Implementation ring message passing among p
+ *       processors
+ *         
+ *    Compile:  
+ *       mpicc -g -o ring.c ring
+ * 
+ *    Run:      
+ *       mpiexec -n <number of processes> ring
  *
- * ┌────┐     ┌────┐
- * │ R0 ├────>│ R1 │
- * └────┘     └────┘
- *    ^          │
- *    │          │
- *    │          V
- * ┌────┐     ┌────┐
- * │ R3 │<────│ R2 │
- * └────┘     └────┘
+ *    Input:
+ *       n/a
+ * 
+ *    Output:
+ *       Message at each stage of the ring shaped transfer
+ *       between the processes.
  *
- * Communication will start at Rank 0, with each subsequent rank listening for a
- * message and then sending the message on once it is received. Messages are
- * appended to one another, like:
+ *    Errors:
+ *       If any arguments are passed to the execution of
+ *       ring, the program aborts and a error message is
+ *       printed.
  *
- * Rank0
- * Rank1 Rank0
- * Rank2 Rank1 Rank0
- * Rank3 Rank2 Rank1 Rank0
- * Communication complete!
- *
- * We talked about how we can't control the order in which strings print when we
- * use MPI. Is this true for this assignment?
- *
- * Compile:  mpicc -g -Wall -o ring ring.c
- * Run:      mpirun -n <num_procs> ./ring
- * Run:      mpirun -n <num_procs> --hostfile host_file.txt ./ring
+ *    Notes:     
+ *       n/a
+ * 
+ *    Github: 
+ *       https://github.com/roy-cruz/COMP5055-HWs/tree/main/HW02
+ * 
  */
 
 #include <stdlib.h>
@@ -38,7 +44,6 @@
 #include <mpi.h>
 
 void w2c(int comm_sz, int my_rank);
-void w2f(int comm_sz, int my_rank, FILE* ofile);
 void err_check(int p_err, char msg[], MPI_Comm comm);
 
 int main(int argc, char *argv[]) {
@@ -51,17 +56,11 @@ int main(int argc, char *argv[]) {
 
     if (argc == 1) {
         w2c(comm_sz, my_rank);
-    } else if ((argc == 3) && !(strcmp(argv[1], "--hostfile"))) {
-        FILE* ofile = fopen(argv[2], "a");
-        if (ofile == NULL)
-            err = 1;
-        err_check(err, "Output file does not exist.", MPI_COMM_WORLD);
-        w2f(comm_sz, my_rank, ofile);
     } else {
         err = 1;
         err_check(
             err, 
-            "Incorrect execution. Usage: \n Write to console: mpiexec -n <number of processes> ring \n Write to file: mpiexec -n <number of processes> --hostfile <file name> ring",
+            "Incorrect execution. Usage: \n Write to console: mpiexec -n <number of processes> ring \n",
             MPI_COMM_WORLD);
     }
 
@@ -69,6 +68,24 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+/*-------------------------------------------------------------------
+ *  Function:   
+ *      w2c (i.e. write to console)
+ * 
+ *  Purpose:
+ *      Initializes a string variable in core 0 which is then sent
+ *      to core 1, which sends it to core 2, etc., until the string
+ *      reaches core p-1, at which point it is sent back to core 0.
+ *      At each of these steps, the recieving core appends to the
+ *      message and prints the appended version of the message.
+ *             
+ *  Arguments:
+ *      comm_sz: size of communicator
+ *      my_rank: rank of processor
+ *
+ *  Note: n/a
+ *    
+ */
 void w2c(
         int comm_sz,    /* in */
         int my_rank     /* in */) {
@@ -96,38 +113,7 @@ void w2c(
         printf("%s\n", msg);
         printf("Communication complete!\n");
     }
-}
-
-void w2f(
-        int comm_sz,    /* in */ 
-        int my_rank,    /* in */
-        FILE* ofile       /* in */) {
-
-    char my_msg[100], msg[100];
-    sprintf(my_msg, "Rank %d", my_rank);
-
-    if (my_rank == 0) { // Rank 0 initializes message to be sent around
-        sprintf(msg, "%s", my_msg);
-    } else { // Other processes wait to recieve message from process my_rank-1. After recieving, they append their contribution to the message
-        MPI_Recv(msg, 100, MPI_CHAR, my_rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        fprintf(ofile, "%s\n", msg);
-        sprintf(msg, "%s %s", msg, my_msg);
-    }
-
-    // Chain sending/recieving starts.
-    if (my_rank < comm_sz - 1) {
-        MPI_Send(msg, 100, MPI_CHAR, my_rank+1, 0, MPI_COMM_WORLD);
-    } else {
-        MPI_Send(msg, 100, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
-    }
-
-    if (my_rank == 0) {
-        MPI_Recv(msg, 100, MPI_CHAR, comm_sz - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        fprintf(ofile, "%s\n", msg);
-        fprintf(ofile, "Communication complete!\n");
-    }
-} /* w2f */
-
+} /* w2c */
 
 /*-------------------------------------------------------------------
  *  Function:   

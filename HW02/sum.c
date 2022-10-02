@@ -1,5 +1,5 @@
 /* 
- * COMP5055 Homework 1
+ * COMP5055 Homework 2
  * Roy F. Cruz Candelaria
  */
 
